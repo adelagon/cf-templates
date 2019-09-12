@@ -1,0 +1,196 @@
+Parameters:
+    EnvironmentName:
+        Description: An environment name that will be prefixed to resource names
+        Type: String
+        
+    VpcCIDR:
+        Description: Please enter the IP range (CIDR) for this VPC (for guide see http://cidr.xyz/)
+        Type: String
+        Default: 10.192.10.0/16
+        
+    PublicSubnetCIDR:
+        Description: Please enter the IP range (CIDR) for the public subnet in the first Availability Zone
+        Type: String
+        Default: 10.192.10.0/24
+        
+    PrivateSubnetCIDR:
+        Description: Please enter the IP range (CIDR) for the private subnet in the first Availability Zone
+        Type: String
+        Default: 10.192.20.0/24
+        
+    SAPServerAMIId:
+        Description: AMI ID for the SAP B1 Image
+        Type: String
+        Default: ami-048a01c78f7bae4aa
+        
+    SAPServerInstanceType:
+        Description: Instance Type for the SAP B1 Server
+        Type: String
+        Default: t2.micro
+        
+    MSSQLServerAMIId:
+        Description: AMI ID for the MSSQL Image
+        Type: String
+        Default: ami-048a01c78f7bae4aa
+        
+    MSSQLServerInstanceType:
+        Description: Instance Typoe for the MSSQL Server
+        Type: String
+        Default: t2.micro
+        
+    KeyName:
+        Description: Name of an existing EC2 keypair to enable remote access to the instance
+        Type: AWS::EC2::KeyPair::KeyName
+        ConstraintDescription: Must be the name of the existing EC2 keypair
+        
+Resources:
+    VPC:
+        Type: AWS::EC2::VPC
+        Properties:
+            CidrBlock: !Ref VpcCIDR
+            EnableDnsSupport: true
+            EnableDnsHostnames: true
+            Tags:
+                - Key: Name
+                  Value: !Ref EnvironmentName
+    
+    InternetGateway:
+        Type: AWS::EC2::InternetGateway
+        Properties:
+            Tags:
+                - Key: Name
+                  Value: !Ref EnvironmentName
+                  
+    InternetGatewayAttachment:
+        Type: AWS::EC2::VPCGatewayAttachment
+        Properties:
+            InternetGatewayId: !Ref InternetGateway
+            VpcId: !Ref VPC
+            
+    PublicSubnet:
+        Type: AWS::EC2::Subnet
+        Properties:
+            VpcId: !Ref VPC
+            AvailabilityZone: !Select [0, !GetAZs '']
+            CidrBlock: !Ref PublicSubnetCIDR
+            MapPublicIpOnLaunch: true
+            Tags:
+                - Key: Name
+                  Value: !Sub ${EnvironmentName} Public Subnet (AZ1)
+                  
+    PublicRouteTable:
+        Type: AWS::EC2::RouteTable
+        Properties:
+            VpcId: VPC
+            Tags:
+                - Key: Name
+                  Value: !Sub ${EnvironmentName} Public Routes
+                  
+    DefaultPublicRoute:
+        Type: AWS::EC2::Route
+        DependsOn: InternetGatewayAttachment
+        Properties:
+            RouteTableId: !Ref PublicRouteTable
+            DestinationCidrBlock: 0.0.0.0/0
+            GatewayId: !Ref InternetGateway
+    
+    PublicSubnetRouteTableAssociation:
+        Type: AWS::EC2::SubnetRouteTableAssociation
+        Properties:
+            RouteTableId: !Ref PublicRouteTable
+            SubnetId: !Ref PublicSubnet
+    
+    PrivateSubnet:
+        Type: AWS::EC2::Subnet
+        Properties:
+            VpcId: !Ref VPC
+            AvailabilityZone: !Select [0, !GetAZs '']
+            CidrBlock: !Ref PrivateSubnetCIDR
+            MapPublicIpOnLaunch: true
+            Tags:
+                - Key: Name
+                  Value: !Sub ${EnvironmentName} Private Subnet (AZ1)
+                      
+    PrivateRouteTable:
+        Type: AWS::EC2::RouteTable
+        Properties:
+            VpcId: !Ref VPC
+            Tags:
+                - Key: Name
+                  Value: !Sub ${EnvironmentName} Private Routes
+    
+    DefaultPrivateRoute:
+        Type: AWS::EC2::Route
+        Properties:
+            RouteTableId: !Ref PrivateRouteTable
+            DestinationCidrBlock: 0.0.0.0/0
+            SubnetId: !Ref PrivateSubnet
+        
+    PrivateSubnetRouteTableAssociation:
+        Type: AWS::EC2::SubnetRouteTableAssociation
+        Properties:
+            RouteTableId: !Ref PrivateRouteTable
+            SubnetId: !Ref PrivateSubnet
+
+    SAPServerSecurityGroup:
+        Type: AWS::EC2::SecurityGroup
+        Properties:
+            GroupDescription: SecurityGroup for the SAP B1 Server Instance
+            SecurityGroupIngress:
+                - IpProtocol: tcp
+                  FromPort: 22
+                  ToPort: 22
+                  CidrIp: 0.0.0.0/0
+
+    SAPServerInstance:
+        Type: AWS::EC2::Instance
+        Properties:
+            ImageId: !Ref SAPServerAMIId
+            KeyName: !Ref KeyName
+            InstanceType: !Ref SAPServerInstanceType
+            SubnetId: !Ref PublicSubnet
+            SecurityGroups:
+                - !Ref SAPServerSecurityGroup
+
+    SAPServerIPAddress:
+        Type: AWS::EC2::EIP
+
+    SAPServerIPAssoc:
+        Type: AWS::EC2::EIPAssociation
+        Properties:
+            InstanceId: !Ref SAPServerInstance
+            EIP: !Ref SAPServerIPAddress
+            
+    MSSQLServerSecurityGroup:
+        Type: AWS::EC2::SecurityGroup
+        Properties:
+            GroupDescription: SecurityGroup for the MSSQL Server Instance
+            SecurityGroupIngress:
+                - IpProtocol: tcp
+                  FromPort: 22
+                  ToPort: 22
+                  CidrIp: 0.0.0.0/0
+
+    MSSQLServerInstance:
+        Type: AWS::EC2::Instance
+        Properties:
+            ImageId: !Ref MSSQLServerAMIId
+            KeyName: !Ref KeyName
+            InstanceType: !Ref MSSQLServerInstanceType
+            SubnetId: !Ref PrivateSubnet
+            SecurityGroups:
+                - !Ref MSSQLServerSecurityGroup
+    
+    MSSQLServerIPAddress:
+        Type: AWS::EC2::EIP
+
+    MSSQLServerIPAssoc:
+        Type: AWS::EC2::EIPAssociation
+        Properties:
+            InstanceId: !Ref MSSQLServerInstance
+            EIP: !Ref MSSQLServerIPAddress
+            
+Outputs:
+    VPC:
+        Description: A reference to the created VPC
+        Value: !Ref VPC
