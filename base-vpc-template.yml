@@ -118,13 +118,7 @@ Resources:
             Tags:
                 - Key: Name
                   Value: !Sub ${EnvironmentName} Private Routes
-    
-    #DefaultPrivateRoute:
-    #    Type: AWS::EC2::Route
-    #    Properties:
-    #        RouteTableId: !Ref PrivateRouteTable
-    #        DestinationCidrBlock: 0.0.0.0/0
-        
+
     PrivateSubnetRouteTableAssociation:
         Type: AWS::EC2::SubnetRouteTableAssociation
         Properties:
@@ -151,6 +145,9 @@ Resources:
             SubnetId: !Ref PublicSubnet
             SecurityGroupIds:
                 - !Ref SAPServerSecurityGroup
+            Tags:
+                - Key: Name
+                  Value: !Sub ${EnvironmentName} SAP Server
 
     SAPServerIPAddress:
         Type: AWS::EC2::EIP
@@ -170,7 +167,12 @@ Resources:
                 - IpProtocol: tcp
                   FromPort: 22
                   ToPort: 22
-                  CidrIp: 0.0.0.0/0
+                  SourceSecurityGroupId: !Ref SAPServerSecurityGroup
+                - IpProtocol: tcp
+                  FromPort: 1433
+                  ToPort: 1433
+                  SourceSecurityGroupId: !Ref SAPServerSecurityGroup
+                  
 
     MSSQLServerInstance:
         Type: AWS::EC2::Instance
@@ -181,6 +183,9 @@ Resources:
             SubnetId: !Ref PrivateSubnet
             SecurityGroupIds:
                 - !Ref MSSQLServerSecurityGroup
+             Tags:
+                - Key: Name
+                  Value: !Sub ${EnvironmentName} MSSQL Server
     
     MSSQLServerIPAddress:
         Type: AWS::EC2::EIP
