@@ -124,7 +124,6 @@ Resources:
         Properties:
             RouteTableId: !Ref PrivateRouteTable
             DestinationCidrBlock: 0.0.0.0/0
-            SubnetId: !Ref PrivateSubnet
         
     PrivateSubnetRouteTableAssociation:
         Type: AWS::EC2::SubnetRouteTableAssociation
@@ -136,6 +135,7 @@ Resources:
         Type: AWS::EC2::SecurityGroup
         Properties:
             GroupDescription: SecurityGroup for the SAP B1 Server Instance
+            VpcId: !Ref VPC
             SecurityGroupIngress:
                 - IpProtocol: tcp
                   FromPort: 22
@@ -149,7 +149,7 @@ Resources:
             KeyName: !Ref KeyName
             InstanceType: !Ref SAPServerInstanceType
             SubnetId: !Ref PublicSubnet
-            SecurityGroups:
+            SecurityGroupIds:
                 - !Ref SAPServerSecurityGroup
 
     SAPServerIPAddress:
@@ -165,6 +165,7 @@ Resources:
         Type: AWS::EC2::SecurityGroup
         Properties:
             GroupDescription: SecurityGroup for the MSSQL Server Instance
+            VpcId: !Ref VPC
             SecurityGroupIngress:
                 - IpProtocol: tcp
                   FromPort: 22
@@ -178,7 +179,7 @@ Resources:
             KeyName: !Ref KeyName
             InstanceType: !Ref MSSQLServerInstanceType
             SubnetId: !Ref PrivateSubnet
-            SecurityGroups:
+            SecurityGroupIds:
                 - !Ref MSSQLServerSecurityGroup
     
     MSSQLServerIPAddress:
