@@ -183,7 +183,7 @@ Resources:
             SubnetId: !Ref PrivateSubnet
             SecurityGroupIds:
                 - !Ref MSSQLServerSecurityGroup
-             Tags:
+            Tags:
                 - Key: Name
                   Value: !Sub ${EnvironmentName} MSSQL Server
     
