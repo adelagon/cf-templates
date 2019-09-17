@@ -187,16 +187,15 @@ Resources:
                 - Key: Name
                   Value: !Sub ${EnvironmentName} MSSQL Server
     
-    MSSQLServerIPAddress:
-        Type: AWS::EC2::EIP
-
-    MSSQLServerIPAssoc:
-        Type: AWS::EC2::EIPAssociation
-        Properties:
-            InstanceId: !Ref MSSQLServerInstance
-            EIP: !Ref MSSQLServerIPAddress
             
 Outputs:
     VPC:
         Description: A reference to the created VPC
         Value: !Ref VPC
+    SAPServerIP:
+        Description: Public IP for the SAP Server
+        Value: !Ref SAPServerIPAddress
+    MSSQLServerIP:
+        Description: Private IP for the MSSQL Server
+        Value: !GetAtt MSSQLServerInstance.PrivateIp
+        
