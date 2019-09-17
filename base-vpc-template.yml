@@ -119,11 +119,11 @@ Resources:
                 - Key: Name
                   Value: !Sub ${EnvironmentName} Private Routes
     
-    DefaultPrivateRoute:
-        Type: AWS::EC2::Route
-        Properties:
-            RouteTableId: !Ref PrivateRouteTable
-            DestinationCidrBlock: 0.0.0.0/0
+    #DefaultPrivateRoute:
+    #    Type: AWS::EC2::Route
+    #    Properties:
+    #        RouteTableId: !Ref PrivateRouteTable
+    #        DestinationCidrBlock: 0.0.0.0/0
         
     PrivateSubnetRouteTableAssociation:
         Type: AWS::EC2::SubnetRouteTableAssociation
