@@ -135,6 +135,10 @@ Resources:
                   FromPort: 22
                   ToPort: 22
                   CidrIp: 0.0.0.0/0
+                - IpProtocol: tcp
+                  FromPort: 3389
+                  CidrIp: 0.0.0.0/0
+
 
     SAPServerInstance:
         Type: AWS::EC2::Instance
@@ -167,6 +171,10 @@ Resources:
                 - IpProtocol: tcp
                   FromPort: 22
                   ToPort: 22
+                  SourceSecurityGroupId: !Ref SAPServerSecurityGroup
+                - IpProtocol: tcp
+                  FromPort: 3389
+                  ToPort: 3389
                   SourceSecurityGroupId: !Ref SAPServerSecurityGroup
                 - IpProtocol: tcp
                   FromPort: 1433
