@@ -21,7 +21,7 @@ Parameters:
     SAPServerAMIId:
         Description: AMI ID for the SAP B1 Image
         Type: String
-        Default: ami-048a01c78f7bae4aa
+        Default: ami-06bfbc4807fa73e58
         
     SAPServerInstanceType:
         Description: Instance Type for the SAP B1 Server
@@ -31,7 +31,7 @@ Parameters:
     MSSQLServerAMIId:
         Description: AMI ID for the MSSQL Image
         Type: String
-        Default: ami-048a01c78f7bae4aa
+        Default: ami-06bfbc4807fa73e58
         
     MSSQLServerInstanceType:
         Description: Instance Typoe for the MSSQL Server
@@ -137,6 +137,7 @@ Resources:
                   CidrIp: 0.0.0.0/0
                 - IpProtocol: tcp
                   FromPort: 3389
+                  ToPort: 3389
                   CidrIp: 0.0.0.0/0
 
 
