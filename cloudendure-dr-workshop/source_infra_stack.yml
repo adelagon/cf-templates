@@ -1,0 +1,273 @@
+Parameters:
+    NamePrefix:
+        Description: An environment name that will be prefixed to resource names
+        Type: String
+        Default: cloudendure-source-stack
+        
+    WordpressServerAMIId:
+        Description: AMI ID for the Wordpress Image
+        Type: String
+        Default: ami-06655da21c9b057ea
+        
+    WordpressServerInstanceType:
+        Description: Instance Type for the Wordpress Server
+        Type: String
+        Default: t2.micro
+        
+    MariaDBServerAMIId:
+        Description: AMI ID for the MariaDB Image
+        Type: String
+        Default: ami-0510b5d8926a84806
+        
+    MariaDBServerInstanceType:
+        Description: Instance Type for the MSSQL Server
+        Type: String
+        Default: t2.micro
+    
+    BastionServerAMIId:
+        Description: AMI ID for the Bastion Server
+        Type: String
+        Default: ami-09d062c8e1df77960
+
+    BastionServerInstanceType:
+        Description: Instance Type for the Bastion Server
+        Type: String
+        Default: t3.nano
+
+    KeyName:
+        Description: Name of an existing EC2 keypair to enable remote access to the instance
+        Type: AWS::EC2::KeyPair::KeyName
+        ConstraintDescription: Must be the name of the existing EC2 keypair
+        Default: cloudendure-workshop
+        
+Resources:
+    VPC:
+        Type: AWS::EC2::VPC
+        Properties:
+            CidrBlock: 10.0.0.0/16
+            EnableDnsSupport: true
+            EnableDnsHostnames: true
+            Tags:
+                - Key: Name
+                  Value: !Sub ${NamePrefix}-vpc
+    
+    InternetGateway:
+        Type: AWS::EC2::InternetGateway
+        Properties:
+            Tags:
+                - Key: Name
+                  Value: !Sub ${NamePrefix}-internet-gateway
+                  
+    InternetGatewayAttachment:
+        Type: AWS::EC2::VPCGatewayAttachment
+        Properties:
+            InternetGatewayId: !Ref InternetGateway
+            VpcId: !Ref VPC
+    
+    NatGateway:        
+        Type: AWS::EC2::NatGateway
+        Properties:
+            AllocationId: !GetAtt NatGatewayEIP.AllocationId
+            SubnetId: !Ref PublicSubnet
+            Tags:
+                - Key: Name
+                  Value: !Sub ${NamePrefix}-nat-gateway
+
+    NatGatewayEIP:
+        Type: AWS::EC2::EIP
+        Properties:
+            Domain: VPC
+
+    PublicSubnet:
+        Type: AWS::EC2::Subnet
+        Properties:
+            VpcId: !Ref VPC
+            AvailabilityZone: !Select [0, !GetAZs '']
+            CidrBlock: 10.0.10.0/24
+            MapPublicIpOnLaunch: true
+            Tags:
+                - Key: Name
+                  Value: !Sub ${NamePrefix}-public-subnet
+                  
+    PublicRouteTable:
+        Type: AWS::EC2::RouteTable
+        Properties:
+            VpcId: !Ref VPC
+            Tags:
+                - Key: Name
+                  Value: !Sub ${NamePrefix}-public-route-table
+                  
+    DefaultPublicRoute:
+        Type: AWS::EC2::Route
+        DependsOn: InternetGatewayAttachment
+        Properties:
+            RouteTableId: !Ref PublicRouteTable
+            DestinationCidrBlock: 0.0.0.0/0
+            GatewayId: !Ref InternetGateway
+
+    PublicSubnetRouteTableAssociation:
+        Type: AWS::EC2::SubnetRouteTableAssociation
+        Properties:
+            RouteTableId: !Ref PublicRouteTable
+            SubnetId: !Ref PublicSubnet
+    
+    PrivateSubnet:
+        Type: AWS::EC2::Subnet
+        Properties:
+            VpcId: !Ref VPC
+            AvailabilityZone: !Select [0, !GetAZs '']
+            CidrBlock: 10.0.20.0/24
+            MapPublicIpOnLaunch: true
+            Tags:
+                - Key: Name
+                  Value: !Sub ${NamePrefix}-private-subnet
+                      
+    PrivateRouteTable:
+        Type: AWS::EC2::RouteTable
+        Properties:
+            VpcId: !Ref VPC
+            Tags:
+                - Key: Name
+                  Value: !Sub ${NamePrefix}-private-route-table
+
+    PrivateRoute:
+        Type: AWS::EC2::Route
+        Properties:
+            RouteTableId: !Ref PrivateRouteTable
+            DestinationCidrBlock: 0.0.0.0/0
+            NatGatewayId: !Ref NatGateway
+
+    PrivateSubnetRouteTableAssociation:
+        Type: AWS::EC2::SubnetRouteTableAssociation
+        Properties:
+            RouteTableId: !Ref PrivateRouteTable
+            SubnetId: !Ref PrivateSubnet
+
+    BastionServerIPAddress:
+        Type: AWS::EC2::EIP
+
+    BastionServerIPAssoc:
+        Type: AWS::EC2::EIPAssociation
+        Properties:
+            InstanceId: !Ref BastionServerInstance
+            EIP: !Ref BastionServerIPAddress
+
+    BastionServerSecurityGroup:
+        Type: AWS::EC2::SecurityGroup
+        Properties:
+            GroupDescription: SecurityGroup for the Bastion Server Instance
+            VpcId: !Ref VPC
+            SecurityGroupIngress:
+                - IpProtocol: tcp
+                  FromPort: 22
+                  ToPort: 22
+                  CidrIp: 0.0.0.0/0
+            Tags:
+                - Key: Name
+                  Value: !Sub ${NamePrefix}-bastion-server-security-group
+
+    BastionServerInstance:
+        Type: AWS::EC2::Instance
+        Properties:
+            ImageId: !Ref BastionServerAMIId
+            KeyName: !Ref KeyName
+            InstanceType: !Ref BastionServerInstanceType
+            SubnetId: !Ref PublicSubnet
+            PrivateIpAddress: 10.0.10.100
+            SecurityGroupIds:
+                - !Ref BastionServerSecurityGroup
+            Tags:
+                - Key: Name
+                  Value: !Sub ${NamePrefix}-bastion-server
+
+    WordpressServerSecurityGroup:
+        Type: AWS::EC2::SecurityGroup
+        Properties:
+            GroupDescription: SecurityGroup for the Wordpress Server Instance
+            VpcId: !Ref VPC
+            SecurityGroupIngress:
+                - IpProtocol: tcp
+                  FromPort: 22
+                  ToPort: 22
+                  SourceSecurityGroupId: !Ref BastionServerSecurityGroup
+                - IpProtocol: tcp
+                  FromPort: 80
+                  ToPort: 80
+                  CidrIp: 0.0.0.0/0
+            Tags:
+                - Key: Name
+                  Value: !Sub ${NamePrefix}-wordpress-server-security-group
+
+    WordpressServerInstance:
+        Type: AWS::EC2::Instance
+        Properties:
+            ImageId: !Ref WordpressServerAMIId
+            KeyName: !Ref KeyName
+            InstanceType: !Ref WordpressServerInstanceType
+            SubnetId: !Ref PublicSubnet
+            PrivateIpAddress: 10.0.10.10
+            SecurityGroupIds:
+                - !Ref WordpressServerSecurityGroup
+            Tags:
+                - Key: Name
+                  Value: !Sub ${NamePrefix}-wordpress-server
+
+    WordpressServerIPAddress:
+        Type: AWS::EC2::EIP
+
+    WordpressServerIPAssoc:
+        Type: AWS::EC2::EIPAssociation
+        Properties:
+            InstanceId: !Ref WordpressServerInstance
+            EIP: !Ref WordpressServerIPAddress
+
+    MariaDBServerSecurityGroup:
+        Type: AWS::EC2::SecurityGroup
+        Properties:
+            GroupDescription: SecurityGroup for the MariaDB Server Instance
+            VpcId: !Ref VPC
+            SecurityGroupIngress:
+                - IpProtocol: tcp
+                  FromPort: 22
+                  ToPort: 22
+                  SourceSecurityGroupId: !Ref BastionServerSecurityGroup
+                - IpProtocol: tcp
+                  FromPort: 3306
+                  ToPort: 3306
+                  SourceSecurityGroupId: !Ref WordpressServerSecurityGroup
+            Tags:
+                - Key: Name
+                  Value: !Sub ${NamePrefix}-mariadb-server-security-group
+                  
+
+    MariaDBServerInstance:
+        Type: AWS::EC2::Instance
+        Properties:
+            ImageId: !Ref MariaDBServerAMIId
+            KeyName: !Ref KeyName
+            InstanceType: !Ref MariaDBServerInstanceType
+            SubnetId: !Ref PrivateSubnet
+            PrivateIpAddress: 10.0.20.10
+            SecurityGroupIds:
+                - !Ref MariaDBServerSecurityGroup
+            Tags:
+                - Key: Name
+                  Value: !Sub ${NamePrefix}-mariadb-server
+    
+Outputs:
+    VPC:
+        Description: A reference to the created VPC
+        Value: !Ref VPC
+
+    BastionServerPublicIp:
+        Description: Public IP for the Bastion Server
+        Value: !Ref BastionServerIPAddress
+
+    WordpressServerPrivateIp:
+        Description: Private IP for the Wordpress Server
+        Value: !GetAtt WordpressServerInstance.PrivateIp
+
+    MariaDBServerPrivateIp:
+        Description: Private IP for the MariaDB Server
+        Value: !GetAtt MariaDBServerInstance.PrivateIp
+        
