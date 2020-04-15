@@ -135,6 +135,6 @@ Resources:
             InstanceType: m5.large
             Name: dev-cloud9
             OwnerArn: !Ref Cloud9OwnerARN
-            SubnetId: !Ref PrivateSubnet
+            SubnetId: !Ref PublicSubnet
 
 
